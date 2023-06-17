@@ -1,0 +1,211 @@
+---
+output:
+  md_document:
+    variant: markdown_github
+---
+
+# 20784538: README for Practical Exam 
+
+Purpose of this work folder, is to provide an outline as to how I approached the questions in this exam.
+
+All data sets are saved in the data folder of the root of the folder. Binary files will be in bin, and closed R functions in code. Human Readable settings files (e.g. csv) will be placed in settings.
+
+All questions are saved in their own folder within the root file.
+
+Thank you, lets begin this journey!
+
+
+I used the following code to start off with:
+
+
+```{r}
+
+rm(list = ls()) # Clean your environment:
+gc() # garbage collection - It can be useful to call gc after a large object has been removed, as this may prompt R to return memory to the operating system.
+library(tidyverse)
+if(!require(dplyr)) install.packages("dplyr") # This installs dplyr if you don't yet have it...
+library(dplyr)
+library(ggplot2)
+library(Texevier)
+
+
+list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% as.list() %>% walk(~source(.))
+```
+
+# Question 1: 
+
+About covid. 
+
+First load in the data using read.csv. 
+
+```{r}
+covid_dat <- read.csv("data/Covid/owid-covid-data.csv", header = TRUE)
+Death_by_cause <- read.csv("data/Covid/Deaths_by_cause.csv", header = TRUE)
+covid_desc <- read.csv("data/Covid/covid_data_description.csv", header = TRUE)
+
+# all_covid_dat <- left_join(Covid_Dat, Death_by_cause, 
+#               #    group_by(Entity) %>% 
+#               #     rename(Tuber = ` Deaths...Tuberculosis...Sex..Both...Age..All.Ages..Number.`, Respiratory = `Deaths...Lower.respiratory.infections...Sex..Both...Age..All.Ages..Number.`) %>% 
+#               #     select(contains("Tuber", "respi")) (Tuber, Respiratory), 
+#                by = "Code")
+
+datawrang <- function(fileroot){
+    
+    library(tidyverse)
+    
+    datafr <- read.csv(fileroot, header = TRUE) %>% tibble::tibble(datafr) %>% mutate(date = as.Date(date))
+
+    datafr
+    
+}
+    
+```
+
+We wrangle the data a bit to have less columns and more rows and easier to work with. 
+
+```{r}
+
+covid_dat <- tibble::tibble(covid_dat) %>% mutate(date = as.Date(date))
+
+covid_plot <-  covid_dat %>% 
+    group_by(`location`) %>% select(date, location, continent, total_cases, total_deaths, total_tests, total_vaccinations) %>% #gather (Healthstat, Number, -`date`, -`location`, -`continent`, na.rm =T) %>% mutate(Healthstat = gsub("Explained by: ", "", Healthstat)) %>% 
+    arrange(date)
+
+
+g <- covid_plot %>% 
+ggplot() + 
+geom_line(aes(x = date, y = total_deaths, color = continent), alpha = 0.5, size = 1) +
+    facet_wrap(~continent, scales = "free_y") +       ggthemes::scale_color_wsj() + theme_bw() + theme(legend.position = "bottom") + labs(x = "", 
+    y = "Prices", title = "Heath Stats for different continents", subtitle = "Total Deaths across Continents", 
+    caption = "Data source: COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University & National Government Reports", x = "", y = "The number of people")
+
+g
+
+g + 
+geom_line(data = covid_plot, aes(x = date, y = total_cases, color = continent), alpha = 0.5, size = 1) + 
+    geom_label(data = covid_plot, aes(date,total_cases, label = continent), size = 3, alpha = 0.1) + geom_label(data = covid_plot, 
+    aes(date, total_deaths, label = continent), size = 3, alpha = 0.1)
+    
+    
+    
+
+h <- covid_plot %>% 
+ggplot() + 
+geom_line(aes(x = date, y = total_cases, color = continent), alpha = 0.5, size = 1) +
+    facet_wrap(~continent, scales = "free_y") +       ggthemes::scale_color_economist() + theme_bw() + theme(legend.position = "bottom") + labs(x = "", 
+    y = "Prices", title = "Heath Stats for different continents", subtitle = "Total Cases across Continents", 
+    caption = "Data source: COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University & National Government Reports", x = "", y = "The number of people")
+
+h
+
+j <- 
+    covid_plot %>% 
+ggplot() + 
+geom_line(aes(x = date, y = total_vaccinations, color = continent), alpha = 0.5, size = 1) +
+    facet_wrap(~continent, scales = "free_y") +       ggthemes::scale_color_economist() + theme_bw() + theme(legend.position = "bottom") + labs(x = "", 
+    y = "Prices", title = "Heath Stats for different continents", subtitle = "Total Vaccinations across Continents", 
+    caption = "Data source: COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University & National Government Reports", x = "", y = "The number of people")
+
+j 
+
+```
+
+For the concentrated groups we focus here on poverty and the elderly, and try to see if these increased the same time covid hit, or are they not correlated at all? 
+
+```{r}
+
+covid_intens <-  covid_dat %>%
+  select(continent, total_deaths, extreme_poverty, aged_65_older) %>%
+  group_by(continent) %>% 
+  mutate(avg_pov = mean(extreme_poverty),
+            pov_diff = extreme_poverty - avg_pov,
+            cats = ifelse(avg_pov >= median(avg_pov), "high", ifelse(avg_pov <= median(avg_pop),"critical", "severe"))) %>% 
+   ungroup() 
+
+table_intense <- xtable(covid_intens, caption = "Table of specific Concentrated groups" 
+    
+
+Term_refs_table <- function(dff_adj, Latex = TRUE){
+library(xtable)
+ 
+    options(xtable.comment = FALSE)
+
+    Result <-
+    bind_rows(
+        Var(dff_adj, Terms = c("elderely")),
+        Var(dff_adj, Terms = c("s", "smokey", "ash"))
+    ) %>% mutate(Percent = paste0(round(Percent*100, 3), "%"))
+
+    # If using Texevier, use this:
+    # addtorow <- Tab_Span_Page()
+
+    if(Latex){
+
+        Tab <- xtable(Result, caption = "Long Table Example  \\label{tab1}")
+
+        # If using Texevier (check):
+    # Tab <-
+    # print.xtable(table,
+    #              tabular.environment = "longtable",
+    #              floating = FALSE, # Leave this as is.
+    #              table.placement = 'H', # Leave this as is.
+    #              booktabs = T, # Aesthetics
+    #              include.rownames = FALSE,  # Typically you don't want this in a table.
+    #              add.to.row = addtorow, # For adding the Continued on next page part...
+    #              comment = FALSE,
+    #              caption.placement = 'top',  # Where do you want the caption?
+    #              size="\\fontsize{12pt}{13pt}\\selectfont"  # Size of text in table..
+    # )
+
+    } else {
+
+Tab <-
+    knitr::kable(Result)
+    }
+
+    Tab
+}
+
+
+
+```
+
+Now we check for the increased hospitilisation, using hospital patients per million and used ICU patients:  
+
+```{r}
+
+covid_plot2 <- covid_dat %>%  select(date, location, continent, hosp_patients, icu_patients) %>% group_by(continent) %>% mutate(hosp_patients_avg = mean(hosp_patients)) %>% mutate(icu_avg = mean(icu_patients)) %>%  mutate(hosp_inc = hosp_patients /lag(hosp_patients) - 1) %>% mutate(icu_lag = icu_patients /lag(icu_patients) - 1) %>% gather(Type, Number, -date, -location, - continent, -hosp_patients_avg, -icu_avg) %>%  ungroup()
+
+hosp_plot <- 
+    covid_plot2 %>% 
+    ggplot() +
+    geom_bar(aes(x = date, y = Number, fill = Type), stat = "identity") +
+    facet_wrap(~Type, scales = "free_y", nrow = 2) +
+    scale_x_date(labels = scales::date_format("%b '%y")) +
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    labs(x = "", y = "") + guides(fill = F)
+
+```
+
+
+
+
+
+
+
+```
+
+```{r}
+
+rmsfuns::build_path(paste0(getwd(), "Figures"))
+
+ggsave(filename = "Figures/Plot.png", plot = covid_plot_bar, width = 6, height = 6, 
+    device = "png")
+
+```
+
+
+
+
+

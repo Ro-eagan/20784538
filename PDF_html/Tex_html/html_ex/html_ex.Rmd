@@ -1,0 +1,158 @@
+---
+title: "Question2: Longdon Paged HTML Doc"
+author: "20784538"
+date: "17 June 2023"
+# date: "`r Sys.Date()`"
+bibliography: Tex/ref.bib       
+output:
+  pagedown::html_paged:
+    # template: wp_paged.html
+    # css: ['wp.css', 'wp-fonts.css', 'wp-page.css']
+    css: ["Template/default-fonts-Texevier.css", "Template/default-page-Texevier.css", "Template/default-Texevier.css"]
+    csl: Template/harvard-stellenbosch-university.csl # referencing format used.
+    template: ["Template/paged-Texevier.html"]
+
+    toc: true
+    # change to true for a self-contained document, but it'll be a litte slower for Pandoc to render
+    self_contained: TRUE
+abstract: |
+
+
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 6)
+
+options(dplyr.summarise.inform = F)
+
+if(!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+
+list.files('..//..//..//Question1/code/', full.names = T, recursive = T) %>% as.list() %>% walk(~source(.))
+
+pacman::p_load(modelsummary, gt, knitr, kableExtra, tidyverse)
+
+# Loading data: 
+    weathdat <- read.csv("C:/Users/mishq/OneDrive/Documents/Ro-eagan/Data Science for Econometrics S1/DatsciPractical23/20784538/Question2/data/London/london_weather.csv", header = TRUE)
+
+detailed_weath <- read.csv("C:/Users/mishq/OneDrive/Documents/Ro-eagan/Data Science for Econometrics S1/DatsciPractical23/20784538/Question2/data/London/UKMonthly_Detailed.csv", header = TRUE)
+
+# weathdf <- tibble::tibble(weathdat) %>% mutate(date = as.Date(date, format = "%Y%m%d")) %>% mutate(format(weathdat$date, "%Y"))
+
+```
+
+\newpage
+
+# Introduction {-}
+
+So you want to move to London? Heres why you should maybe think twice, and just consider staying in the place with the best weather (might be bias). 
+
+I will be showing you two graphs and a table to illustrate how little sun London gets, and how much overcast days are basically just a given. Since you like vitamin D so much, why would you then give up Cape Town weather for none of that? 
+
+
+
+
+## What type of days rule the seasons? {-}
+
+To get a picture, here is a graph that shows how much more overcast days there are overall in the year, throughout any given season. Notice that its higher than sunny days? 
+
+```{r seasons,  warning =  FALSE, fig.align = 'center', fig.cap = "Types of days in seasons\\label{Figure1}", fig.ext = 'png', fig.height = 5, fig.width = 7}
+
+# weath_lineplot <- weathdf_quart %>% 
+#     group_by(year)
+    
+sun_plot <- 
+    weathdat %>%
+    ggplot() +
+    geom_line(aes(x = date, y = sunshine, color = seasons), alpha = 0.8, size = 1) +   
+    theme_bw() +
+    theme(legend.position = "bottom") +
+    labs(x = "Year", y = "Quarterly Total Minutes of Sunshine", fill = "Season", title = "Sunny Days in Different Seasons", subtitle = "Minutes of sunshine observed the seasons over the years", caption = "Data: sourced from UK National Weather Service") 
+    
+cloud_plot <-
+weathdat %>% 
+    ggplot() +
+        geom_line(aes(x = date, y = cloud_cover, color = seasons), alpha = 0.8, size = 1) +   
+    theme_bw() +
+    theme(legend.position = "bottom") +
+    labs(x = "Year", y = "Quarterly Total Minutes of cloud_cover", fill = "Season", title = "Cloudy Days in Different Seasons", subtitle = "Minutes of overcast observed the seasons over the years", caption = "Data: sourced from UK National Weather Service") 
+
+weather_plot <- (sun_plot + cloud_plot) + plot_annotation(title = 'Weather in London over seasons', caption = 'Source: UK National Weather Service') & theme(text = element_text('bold'))
+
+weather_plot
+
+```
+
+
+<!-- The following is a code chunk. It must have its own unique name (after the r), or no name. After the comma follows commands for R which are self-explanatory. By default, the code and messages will not be printed in your pdf, just the output: 
+# This is just a random plot to show you a plot. This is done if the getwd() does not point to your Template's directory.
+Set WD below to your project's working directory.-->
+
+
+#  Methodology \label{Meth} {-}
+
+
+$$
+\beta = \sum_{i = 1}^{\infty}\frac{\alpha^2}{\sigma_{t-1}^2} \\
+\int_{x = 1}^{\infty}x_{i} = 1
+$$
+
+Writing nice math requires practice. Note I used a forward slashes to make a space in the equations. I can also align equations using  __\&__, and set to numbering only the first line. Now I will have to type ``begin equation'' which is a native \LaTeX command. Here follows a more complicated equation:
+
+## Results {-}
+
+Tables can be included as follows. Use the _xtable_ (or kable) package for tables. Table placement = H implies Latex tries to place the table Here, and not on a new page (there are, however, very many ways to skin this cat. Luckily there are many forums online!).
+
+```{r table-1, echo=TRUE, message=FALSE, warning=FALSE, results="asis"}
+library(knitr)
+library(kableExtra)
+
+data <- mtcars[1:5,] %>% tibble::as_tibble()
+
+table <- kable(data, row.names = TRUE,
+      caption = 'Table with kable() and kablestyling()',
+      format = "html", booktabs = T) %>%
+        kable_styling(full_width = T,
+                      latex_options = c("striped",
+                                        "scale_down",
+                                        "HOLD_position"),
+                      font_size = 13)
+table
+```
+
+
+\newpage
+
+
+# Weather Summary: 
+
+```{r}
+
+library(modelsummary);library(gt)
+
+# modelsummary works well with gt:
+
+Tab <-
+
+datasummary_skim(swiss,
+type="numeric",
+ histogram=T,
+ title = "Summary: Numeric variables", output = "gt") %>%
+
+        # column labels
+    tab_spanner(label = 'Statistics', columns = c("Mean", "SD")) %>%
+    tab_spanner(label = 'Quantiles', columns = starts_with("P")) %>%
+    # footnote
+    tab_footnote(footnote = md("A very **important** Footnote."),
+                 locations = cells_body(rows = 3, columns = 1)) %>%
+
+    tab_options(data_row.padding = px(4),table.width = pct(60),
+            column_labels.font.size = pct(100),
+            column_labels.vlines.width = 1, table.font.size = pct(60))
+
+Tab
+```
+
+
+
+

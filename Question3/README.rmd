@@ -1,0 +1,294 @@
+---
+output:
+  md_document:
+    variant: markdown_github
+---
+
+# Question 3: Music Taste 
+
+Purpose of this work folder is to write a short report on the longevity and musical progression of some of the most famous bands over time. This will be comparing two bands, Coldplay and Metallica. 
+
+Data file is saved in the appropriate data file. 
+
+
+```{r}
+
+rm(list = ls()) # Clean your environment:
+gc() # garbage collection - It can be useful to call gc after a large object has been removed, as this may prompt R to return memory to the operating system.
+
+
+library(tidyverse)
+
+if(!require(dplyr)) install.packages("dplyr") # This installs dplyr if you don't yet have it...
+library(dplyr)
+
+if(!require(pacman)) install.packages("pacman")
+
+pacman::p_load(tibble)
+library(readr)
+library(ggthemes)
+library(ggplot2)
+
+p_load(fixest, tidyverse, huxtable, modelsummary, glue)
+
+
+list.files('code/', full.names = T, recursive = T) %>% as.list() %>% walk(~source(.))
+```
+
+## Loading in the data: 
+
+```{r}
+
+coldplay <- 
+    read_csv("data/Coldplay_vs_Metallica/Coldplay.csv", col_names = TRUE, col_types = cols(release_date = "D"))
+
+metallica <-
+    read_csv("data/Coldplay_vs_Metallica/metallica.csv", col_names = TRUE, col_types = cols(release_date = "D"))
+
+```
+
+## Data
+
+Lets look at coldplays albums over the years and thier popularity:
+
+Here we create some dataframes for the graphs we will plot. 
+
+```{r}
+
+coldplay_album <- 
+    coldplay %>% select(album_name, release_date, name, popularity) %>%       group_by(album_name) %>% arrange(release_date) %>% 
+    ungroup()
+
+# _lets see whether or a songs popularity depends on energy, duration, valence, danceability and tempo:_ 
+
+det_popular <- 
+    coldplay %>% select(name, album_name, popularity, energy, valence, tempo, danceability) %>% mutate(avg_pop = mean(popularity)) 
+
+```
+
+## Visualising the data: 
+
+Lets see coldplays album statistics over the years...
+
+```{r }
+
+album_plotdf <- 
+    coldplay_album %>% 
+    group_by(album_name) %>% mutate(mean_pop = round(mean(popularity))) %>% 
+    arrange(release_date) %>% mutate(popularity = as.numeric(popularity)) #%>%          plot_orderset(., Column = "album_name", Order = order1)
+
+#ordering: 
+# order1 <- album_plotdf %>% arrange(release_date) %>% pull(album_name)
+# 
+# album_plotdf$album_name <- factor(album_plotdf$album_name, levels = order1)
+
+
+b <- 
+    album_plotdf %>% 
+    #plot_orderset(., Column = "album_name", Order = order1) %>% 
+    ggplot() + 
+    geom_bar(aes(album_name, popularity, fill = mean_pop), stat = 'identity') +
+    scale_y_continuous(limits = c(0,100), breaks = scales::breaks_pretty(n = 10)) +
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(x = "Names of Albums", y = "Popularity Score", caption = "Sourced: From Spotify database", title = "Coldplay's Avg. Ratings per album")
+
+b
+
+rmsfuns::build_path(paste0(getwd(), "Figures"))
+
+ggsave(filename = "Figures/Plot.png", plot = b, width = 12, height = 10, 
+    device = "png")
+
+```
+
+Now we look at coldplays most popular songs in their respective albums over the years: 
+
+```{r}
+
+album_boxdf <- album_plotdf %>% 
+    mutate(Text = ifelse(popularity == min(popularity, na.rm=T), glue::glue("Lowest: Album_name:{album_name}, Song:{name} ({popularity})"),
+                         ifelse(popularity == max(popularity, na.rm=T), glue::glue("Highest: Album_name:{album_name}, Song:{name} ({popularity})"),
+                                NA_character_))) #%>% plot_orderset(., Column = "album_name", Order = order2)
+
+order2 <- album_boxdf %>% arrange(release_date) %>% pull(album_name)
+
+ratings <- 
+    album_boxdf %>% 
+    #plot_orderset(., Column = "album_name", Order = order2) %>% 
+    ggplot() +
+    geom_boxplot(aes(x = album_name, y = popularity, fill = album_name), alpha = 0.4) +
+    geom_jitter(aes(album_name, mean_pop , color = name), size = 2, alpha = 0.8) +
+    scale_y_continuous(limits = c(0,100), breaks = scales::breaks_pretty(n = 10)) +
+    ggrepel::geom_text_repel(aes(x = album_name, y = popularity, label = Text),
+                             force = T) +
+    theme_economist() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(x = "Album Names", y = "Popularity", caption = "Sourced from Spotify Database", title = "Coldplays Popularity ratings for songs ") +
+    scale_fill_hue(l=40, c=35) +
+    scale_color_hue(l=40, c=35) + 
+    guides(color = F)
+    
+    #coord_flip()
+    
+ratings
+
+ggsave(filename = "Figures/Plot.png", plot = ratings, width = 12, height = 10, 
+    device = "png")
+
+```
+
+
+
+##What makes a song popular? 
+
+Lets take a look. 
+
+```{r}
+det_pop_plot <- det_popular %>% 
+    #mutate(tempo = ifelse(tempo < 100, , tempo)) %>%
+    #mutate(popularity = ifelse(popularity > 50, 50, popularity)) %>%
+    mutate(Q1 = quantile(energy, 0.25)) %>% mutate(Q2 = quantile(energy, 0.75)) %>% mutate(energy = ifelse(energy < Q1, 5, ifelse(energy < Q2, 6, ifelse(energy >= Q2, 7, NA_real_)))) %>% mutate(Energy = ifelse(energy == 5, "small", ifelse(energy == 6,
+    "medium", "large")))
+    
+p <- 
+    det_pop_plot %>% 
+    ggplot() +
+    geom_point(aes(tempo,popularity, size = Energy), alpha = 0.6) + 
+    scale_color_manual(values = c(small = "darkgreen", medium = "purple", 
+    large = "darkred")) +
+    guides(size = F, color = guide_legend(title = "Energy of song")) + 
+    theme_bw() +
+    labs(title = "Song's popularity according to its attributes")
+
+p
+
+ratings
+
+ggsave(filename = "Figures/Plot.png", plot = p, width = 12, height = 10, 
+    device = "png")
+
+```
+
+## Now for metallica : 
+
+```{r}
+
+metallica_album <- 
+    metallica %>% select(album, release_date, name, popularity) %>%       group_by(album) %>% arrange(release_date) %>% 
+    ungroup()
+
+# _lets see whether or a songs popularity depends on energy, duration, valence, danceability and tempo:_ 
+
+det_pop_metal <- 
+    metallica %>% select(name, album, popularity, energy, tempo, valence) %>% mutate(avg_pop = mean(popularity)) 
+
+```
+
+### Visualising the data: 
+
+Lets see Metallica's album statistics over the years...
+
+```{r }
+
+album_metp <- 
+    metallica_album %>% 
+    group_by(album) %>% mutate(mean_pop = round(mean(popularity))) %>% 
+    arrange(release_date) %>% mutate(popularity = as.numeric(popularity)) %>%  mutate (album = as.factor(album)) %>% 
+    mutate(album = fct_reorder(name, release_date)) #%>%          plot_orderset(., Column = "album_name", Order = order1)
+
+#ordering: 
+# order1 <- album_plotdf %>% arrange(release_date) %>% pull(album_name)
+# 
+# album_plotdf$album_name <- factor(album_plotdf$album_name, levels = order1)
+
+
+c <- 
+    album_metp %>% 
+    #plot_orderset(., Column = "album_name", Order = order1) %>% 
+    ggplot() + 
+    geom_bar(aes(album, popularity, fill = mean_pop), stat = 'identity') +
+    scale_y_continuous(limits = c(0,100), breaks = scales::breaks_pretty(n = 10)) +
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(x = "Names of Albums", y = "Popularity Score", caption = "Sourced: From Spotify database", title = "Metallica's Avg. Ratings per album")
+
+c
+
+rmsfuns::build_path(paste0(getwd(), "Figures"))
+
+ggsave(filename = "Figures/Plot.png", plot = c, width = 12, height = 10, 
+    device = "png")
+
+```
+
+Now we look at coldplays most popular songs in their respective albums over the years: 
+
+```{r}
+
+met_alb_box <- album_metp %>% 
+    mutate(Text = ifelse(popularity == min(popularity, na.rm=T), glue::glue("Lowest: Album_name:{album}, Song:{name} ({popularity})"),
+                         ifelse(popularity == max(popularity, na.rm=T), glue::glue("Highest: Album_name:{album}, Song:{name} ({popularity})"),
+                                NA_character_))) #%>% plot_orderset(., Column = "album_name", Order = order2)
+
+order2 <- album_boxdf %>% arrange(release_date) %>% pull(album_name)
+
+met_rates <- 
+    album_metp %>% 
+    #plot_orderset(., Column = "album_name", Order = order2) %>% 
+    ggplot() +
+    geom_boxplot(aes(x = album, y = popularity, fill = album), alpha = 0.6) +
+    geom_jitter(aes(album, mean_pop , color = name), size = 2, alpha = 0.5) +
+    scale_y_continuous(limits = c(0,100), breaks = scales::breaks_pretty(n = 10)) +
+    ggrepel::geom_text_repel(aes(x = album, y = popularity, label = Text),
+                             force = T) +
+    theme_economist() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(x = "Album Names", y = "Popularity", caption = "Sourced from Spotify Database", title = "Metallica's Popularity ratings for songs ") +
+    scale_fill_hue(l=40, c=35) +
+    scale_color_hue(l=40, c=35) + 
+    guides(color = F)
+    
+    #coord_flip()
+    
+met_rates
+
+ggsave(filename = "Figures/Plot.png", plot = metrates, width = 12, height = 10, 
+    device = "png")
+
+```
+
+
+
+##What makes a song popular? 
+
+Lets take a look. 
+
+```{r}
+met_song_pop <- det_pop_metal %>% 
+    #mutate(tempo = ifelse(tempo < 100, , tempo)) %>%
+    #mutate(popularity = ifelse(popularity > 50, 50, popularity)) %>%
+    mutate(Q1 = quantile(energy, 0.25)) %>% mutate(Q2 = quantile(energy, 0.75)) %>% mutate(energy = ifelse(energy < Q1, 5, ifelse(energy < Q2, 6, ifelse(energy >= Q2, 7, NA_real_)))) %>% mutate(Energy = ifelse(energy == 5, "small", ifelse(energy == 6,
+    "medium", "large")))
+    
+q <- 
+    met_song_pop %>% 
+    ggplot() +
+    geom_point(aes(tempo,popularity, size = Energy), alpha = 0.6) + 
+    scale_color_manual(values = c(small = "darkgreen", medium = "purple", 
+    large = "darkred")) +
+    guides(size = F, color = guide_legend(title = "Energy of song")) + 
+    theme_bw() +
+    labs(title = "Song's popularity according to its attributes")
+
+q
+
+ratings
+
+ggsave(filename = "Figures/Plot.png", plot = q, width = 12, height = 10, 
+    device = "png")
+
+```
+
+
+We can see the various attributes between the two bands on what makes their songs popular. We can also see that they have similar ratings over time for their albums. 
